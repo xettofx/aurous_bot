@@ -5,11 +5,13 @@ import email
 import time
 import threading
 import os
+import requests as req
 
 app = Flask(__name__)
 
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
+LOCAL_URL  = "https://piney-lithically-ariah.ngrok-free.dev"
 
 def process_alert(raw_message):
     decoded_parts = decode_header(raw_message)
@@ -39,7 +41,27 @@ def process_alert(raw_message):
         action = "SL"
 
     print(f"Action: {action} | Price: {price}")
-    # TODO: broker execution goes here in Step 4
+
+    if action == "ENTRY" and price:
+        try:
+            direction = "SELL" if "SHORT" in message else "BUY"
+            if direction == "BUY":
+                sl = price - 10.0
+                tp = price + 30.0
+            else:
+                sl = price + 10.0
+                tp = price - 30.0
+
+            payload = {
+                "action": direction,
+                "price":  price,
+                "sl":     sl,
+                "tp":     tp,
+            }
+            r = req.post(f"{LOCAL_URL}/trade", json=payload, timeout=10)
+            print(f"Trade response: {r.status_code} {r.text}")
+        except Exception as e:
+            print(f"Trade error: {e}")
 
 def check_email():
     while True:
