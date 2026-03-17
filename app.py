@@ -7,9 +7,8 @@ import os
 
 app = Flask(__name__)
 
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "aurous123")
-GMAIL_USER     = os.environ.get("GMAIL_USER", "")
-GMAIL_PASS     = os.environ.get("GMAIL_PASS", "")
+GMAIL_USER = os.environ.get("GMAIL_USER", "")
+GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
 
 def process_alert(message):
     print(f"ALERT: {message}")
@@ -29,7 +28,6 @@ def process_alert(message):
         action = "SL"
 
     print(f"Action: {action} | Price: {price}")
-    # TODO: broker execution goes here in Step 4
 
 def check_email():
     while True:
@@ -37,8 +35,7 @@ def check_email():
             mail = imaplib.IMAP4_SSL("imap.gmail.com")
             mail.login(GMAIL_USER, GMAIL_PASS)
             mail.select("inbox")
-
-            _, msgs = mail.search(None, '(UNSEEN FROM "noreply@tradingview.com")')
+            _, msgs = mail.search(None, "(UNSEEN)")
             for num in msgs[0].split():
                 _, data = mail.fetch(num, "(RFC822)")
                 msg = email.message_from_bytes(data[0][1])
@@ -51,23 +48,22 @@ def check_email():
                             break
                 else:
                     body = msg.get_payload(decode=True).decode()
-
                 full_text = subject + " " + body
                 process_alert(full_text)
                 mail.store(num, "+FLAGS", "\\Seen")
-
             mail.logout()
         except Exception as e:
-            print(f"Email check error: {e}")
-
+            print(f"Email error: {e}")
         time.sleep(10)
+
+# Start email thread when module loads (works with gunicorn)
+email_thread = threading.Thread(target=check_email, daemon=True)
+email_thread.start()
 
 @app.route("/")
 def index():
     return "Aurous Bot is live.", 200
 
 if __name__ == "__main__":
-    t = threading.Thread(target=check_email, daemon=True)
-    t.start()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
