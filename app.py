@@ -9,9 +9,23 @@ import requests as req
 
 app = Flask(__name__)
 
-GMAIL_USER = os.environ.get("GMAIL_USER", "")
-GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
-LOCAL_URL  = "https://piney-lithically-ariah.ngrok-free.dev"
+GMAIL_USER  = os.environ.get("GMAIL_USER", "")
+GMAIL_PASS  = os.environ.get("GMAIL_PASS", "")
+TG_TOKEN    = "8397863631:AAGpBV6K8XFHRropukCrfakrBmZAesBCD0E"
+TG_CHAT_ID  = "-1003846727364"
+
+def send_telegram(message):
+    try:
+        url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TG_CHAT_ID,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+        r = req.post(url, json=payload, timeout=10)
+        print(f"Telegram response: {r.status_code}")
+    except Exception as e:
+        print(f"Telegram error: {e}")
 
 def process_alert(raw_message):
     decoded_parts = decode_header(raw_message)
@@ -22,46 +36,11 @@ def process_alert(raw_message):
         else:
             message += str(part)
 
-    message = message.upper()
-    print(f"ALERT: {message}")
+    message_upper = message.upper()
+    print(f"ALERT: {message_upper}")
 
-    action = None
-    price  = None
-
-    if "ENTRY" in message:
-        action = "ENTRY"
-        if "AT" in message:
-            try:
-                price = float(message.split("AT")[-1].strip().split()[0])
-            except:
-                price = None
-    elif "TARGET HIT" in message:
-        action = "TARGET"
-    elif "SL HIT" in message:
-        action = "SL"
-
-    print(f"Action: {action} | Price: {price}")
-
-    if action == "ENTRY" and price:
-        try:
-            direction = "SELL" if "SHORT" in message else "BUY"
-            if direction == "BUY":
-                sl = price - 10.0
-                tp = price + 30.0
-            else:
-                sl = price + 10.0
-                tp = price - 30.0
-
-            payload = {
-                "action": direction,
-                "price":  price,
-                "sl":     sl,
-                "tp":     tp,
-            }
-            r = req.post(f"{LOCAL_URL}/trade", json=payload, timeout=10)
-            print(f"Trade response: {r.status_code} {r.text}")
-        except Exception as e:
-            print(f"Trade error: {e}")
+    if "AUROUS BOT" in message_upper:
+        send_telegram(message.strip())
 
 def check_email():
     while True:
@@ -90,7 +69,6 @@ def check_email():
             print(f"Email error: {e}")
         time.sleep(10)
 
-# Start email thread when module loads (works with gunicorn)
 email_thread = threading.Thread(target=check_email, daemon=True)
 email_thread.start()
 
